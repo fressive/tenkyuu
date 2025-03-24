@@ -25,7 +25,7 @@ def ssrf_proxy(req):
     # to `gopher://...` protocol automatically
     gopherized_url = req.gopherize() 
     
-    # Assume that the server has a ssrf vulunerale entrance
+    # Assume that the server has a ssrf vulnerability entrance
     # and supports gopher:// protocol, responsing with data 
     # in JSON format
     resp = requests.get("https://vulnerable.com/ssrf.php", params = {
