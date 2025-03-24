@@ -1,6 +1,6 @@
 # Tenkyuu
 
-An framework to create HTTP Proxy through Web vulunerabilities (SSRF, WebShell, etc.) quickly. 
+A framework to create a HTTP Proxy through web vulunerabilities (SSRF, WebShell, etc.) quickly. 
 
 ## Usage
 
