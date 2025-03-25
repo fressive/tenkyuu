@@ -18,6 +18,8 @@ import signal
 import socket
 import sys
 
+from typing import Union
+
 class Request(object):
     """
     Represents an HTTP request.
@@ -26,7 +28,46 @@ class Request(object):
         request_data (bytes): The raw data of the HTTP request.
     """
     def __init__(self, request_data: bytes):
-        pass
+        lines = request_data.splitlines()
+        
+        self.method, self.path, self.protocol = [i.decode() for i in lines[0].split()]
+        
+        split_index = lines.index(b"")
+        self.headers = self._parse_headers(lines[1:split_index])
+        
+        body_index = request_data.find(b"\r\n\r\n") + 4
+        self.body = request_data[body_index:]
+    
+    def _parse_headers(self, lines: list) -> None:
+        """
+        Parses the headers from the request data.
+        Args:
+            lines (list): The lines of the request data.
+        Returns:
+            None
+        """
+        
+        headers = {}
+        for line in lines:
+            key, value = [i.decode() for i in line.split(b": ", 1)]
+            
+            # Convert the key to lowercase
+            key = key.lower()
+            
+            headers[key] = value
+        
+        return headers
+    
+    def header(self, key: str) -> str:
+        """
+        Returns the value of the header with the given key.
+        Args:
+            key (str): The key of the header.
+        Returns:
+            str: The value of the header.
+        """
+        
+        return self.headers[key.lower()]
     
 class Response(object):
     """
@@ -40,9 +81,11 @@ class Response(object):
             Generates a response object representing an internal server error with an optional custom message.
     """
     def __init__(self, response_data: bytes):
-        pass
+        lines = response_data.splitlines()
+        
+        
     
-    def make_response(data: str | bytes):
+    def make_response(data: Union[str, bytes]):
         pass
     
     def make_internal_error_response(message: str = "Internal Server Error"):
@@ -60,10 +103,35 @@ class Tenkyuu(object):
         run(handler: callable[[Request], Response | str | bytes | None], host: str = "127.0.0.1", port: int = 80) -> None:
             Starts the proxy server and listens for incoming client connections.
     """        
-    def __init__(self):
-        pass
+    def __init__(self, handler: callable):
+        self.handler = handler
     
-    def shutdown(self, signum, frame):
+    def handle_client(self, client_socket: socket.socket) -> None:
+        """
+        Handles an incoming client connection.
+        Args:
+            client_socket (socket.socket): The client socket connection.
+        Returns:
+            None
+        """
+
+        request_data = client_socket.recv(4096)
+        request = Request(request_data)
+        response = self.handler(request)
+        
+        if response is None:
+            response = Response.make_internal_error_response()
+        elif isinstance(response, str) or isinstance(response, bytes):
+            response = Response.make_response(response)
+        
+        if not isinstance(response, Response):
+            # Invalid response type
+            raise ValueError("Invalid response type")
+        
+        client_socket.sendall(response.response_data)
+        client_socket.close()
+        
+    def shutdown(self, signum: int = 0, frame = None) -> None:
         """
         Gracefully shuts down the proxy server.
         Normally, this method is triggered by a signal and is responsible for closing the
@@ -78,16 +146,20 @@ class Tenkyuu(object):
         self.proxy_server.close()
         sys.exit(signum)
         
-    def run(self, handler: callable[[Request], Response | str | bytes | None], host: str = "127.0.0.1", port: int = 80) -> None:
+    def run(
+        self,
+        host: str = "127.0.0.1", 
+        port: int = 80
+    ) -> None:
         """
         Run the proxy server.
         Args:
-            handler (callable): The function to handle incoming client connections.
             host (str): The host to bind the proxy server to.
             port (int): The port to bind the proxy server to.
         Returns:
             None
         """
+        
         signal.signal(signal.SIGINT, self.shutdown)
         
         self.proxy_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
